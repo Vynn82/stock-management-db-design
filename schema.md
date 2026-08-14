@@ -277,6 +277,7 @@ Main business request table.
 
 - `PRODUCT_CREATE`
 - `PRODUCT_UPDATE`
+- `PRODUCT_IMPORT`
 - `STOCK_ADJUSTMENT`
 - `STOCK_TRANSFER`
 
@@ -293,6 +294,21 @@ Stores the actual requested data/change.
 | `quantity` | DECIMAL(15,3) | NULL | Requested quantity |
 | `action_type` | VARCHAR(30) | NOT NULL | Requested action |
 | `reason` | TEXT | NULL | Reason for request |
+
+## `request_attachments`
+
+Stores files uploaded to a request so certifiers and approvers can review them.
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | UUID | PK | Attachment ID |
+| `request_id` | UUID | FK, NOT NULL | FK → requests.id |
+| `file_name` | VARCHAR(255) | NOT NULL | Original file name |
+| `file_path` | VARCHAR(500) | NOT NULL | Stored file location |
+| `file_type` | VARCHAR(100) | NOT NULL | MIME type |
+| `file_size` | BIGINT | NOT NULL | File size in bytes |
+| `uploaded_by` | UUID | FK, NOT NULL | FK → users.id |
+| `created_at` | TIMESTAMP | NOT NULL | Upload time |
 
 ## `request_approvers`
 
