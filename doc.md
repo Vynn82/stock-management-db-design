@@ -1258,13 +1258,174 @@ The core workflow engine handling product creation, variant creation/updating, s
 - `PATCH /stock/:id`: Update stock record
 - `DELETE /stock/:id`: Delete stock record
 
-### 17.2 Stock Adjustments (`/stock-adjustments`)
+### 17.2 Direct Stock Adjustments (`/stock-adjustments`)
 
-- `GET /stock-adjustments`: List direct adjustments
-- `GET /stock-adjustments/:id`: Get adjustment record
-- `POST /stock-adjustments`: Create adjustment
-- `PATCH /stock-adjustments/:id`: Update adjustment
-- `DELETE /stock-adjustments/:id`: Delete adjustment
+Direct stock adjustment allows **`ADMIN`** and **`SUPER_ADMIN`** to adjust physical inventory balances immediately without creating a request or requiring multi-step approvals. Regular staff continue to use the approval workflow via `POST /requests` (`STOCK_ADJUSTMENT`).
+
+#### 17.2.1 Direct Manual Adjustment
+
+- **Endpoint**: `POST /stock-adjustments`
+- **Access**: Restricted to `ADMIN`, `SUPER_ADMIN` (`@RequireRoles('ADMIN', 'SUPER_ADMIN')`)
+- **Headers**: `Authorization: Bearer <token>`, `Content-Type: application/json`
+
+**Batch Payload Example**:
+
+```json
+{
+  "adjustments": [
+    {
+      "productCode": "IMP-PROD-49496",
+      "variantCode": null,
+      "warehouseCode": "WH-49364",
+      "adjustmentType": "INCREASE",
+      "quantity": 5,
+      "reason": "Direct physical recount surplus"
+    },
+    {
+      "productCode": "IMP-PROD-49496",
+      "variantCode": null,
+      "warehouseCode": "WH-49364",
+      "adjustmentType": "DECREASE",
+      "quantity": 2,
+      "reason": "Damaged items removed from inventory"
+    }
+  ]
+}
+```
+
+**Single Item Payload Example**:
+
+```json
+{
+  "productCode": "IMP-PROD-49496",
+  "warehouseCode": "WH-49364",
+  "adjustmentType": "INCREASE",
+  "quantity": 10,
+  "reason": "Direct inventory correction"
+}
+```
+
+**Response (`201 Created`)**:
+
+```json
+{
+  "message": "Stock adjustments applied successfully",
+  "count": 1,
+  "data": [
+    {
+      "adjustmentId": "26db8ac3-cc8e-410e-8d79-21b23644a37a",
+      "productCode": "IMP-PROD-49496",
+      "variantCode": null,
+      "warehouseCode": "WH-49364",
+      "adjustmentType": "INCREASE",
+      "quantity": 10,
+      "previousStock": 15,
+      "newStock": 25,
+      "reason": "Direct inventory correction"
+    }
+  ]
+}
+```
+
+---
+
+#### 17.2.2 Direct Excel Import
+
+- **Endpoint**: `POST /stock-adjustments/import`
+- **Access**: Restricted to `ADMIN`, `SUPER_ADMIN`
+- **Content-Type**: `multipart/form-data`
+- **Form Field**: `file` (Binary `.xlsx` file)
+- **Option 3 (Both / Flexible)**:
+  - **Explicit `adjustment_type`**: Values `INCREASE` or `DECREASE`.
+  - **Inferred from Quantity Sign**: If `adjustment_type` column is missing, negative numbers (e.g. `-5`) become `DECREASE` 5, positive numbers become `INCREASE`.
+  - `base_price` and `selling_price` columns are optional.
+
+**Response (`201 Created`)**:
+
+```json
+{
+  "message": "Stock adjustments applied successfully",
+  "count": 2,
+  "data": [
+    {
+      "adjustmentId": "...",
+      "productCode": "IMP-PROD-49496",
+      "variantCode": null,
+      "warehouseCode": "WH-49364",
+      "adjustmentType": "DECREASE",
+      "quantity": 2,
+      "previousStock": 25,
+      "newStock": 23,
+      "reason": "Damaged stock deduction"
+    }
+  ]
+}
+```
+
+---
+
+#### 17.2.3 Download Direct Stock Adjustment Template
+
+- **Endpoint**: `GET /stock-adjustments/import/template`
+- **Access**: Public (`@Public()`)
+- **Response**: Binary styled Excel `.xlsx` file.
+- **Columns**: `['product_code', 'variant_code', 'warehouse_code', 'adjustment_type', 'quantity', 'reason', 'base_price', 'selling_price']`
+
+---
+
+#### 17.2.4 Paginated Stock Adjustment Audit Log
+
+- **Endpoint**: `GET /stock-adjustments`
+- **Access**: Authenticated
+- **Query Parameters**:
+  - `page`: Page number (default `1`)
+  - `limit`: Items per page (default `10`, max `100`)
+  - `productId`: Filter by product UUID
+  - `warehouseId`: Filter by warehouse UUID
+  - `productCode`: Filter by product code (case-insensitive substring)
+  - `warehouseCode`: Filter by warehouse code (case-insensitive substring)
+  - `adjustmentType`: `INCREASE` or `DECREASE`
+  - `search`: Search across reasons, product codes, warehouse codes
+
+**Response (`200 OK`)**:
+
+```json
+{
+  "data": [
+    {
+      "id": "26db8ac3-cc8e-410e-8d79-21b23644a37a",
+      "requestId": null,
+      "adjustedById": "693a56ed-5436-4756-ba32-ff09e691fbfd",
+      "productId": "0f89d6c8-8bc4-4592-9cba-25d57bfb112b",
+      "variantId": null,
+      "warehouseId": "a57bb815-bbf0-42cf-bb52-f6733230c1be",
+      "adjustmentType": "INCREASE",
+      "quantity": "5.000",
+      "reason": "Direct audit recount surplus",
+      "createdAt": "2026-09-20T08:59:04.123Z",
+      "product": { "id": "...", "code": "IMP-PROD-49496", "name": "..." },
+      "warehouse": { "id": "...", "code": "WH-49364", "name": "..." },
+      "adjustedBy": { "id": "...", "staffId": "KH0002", "firstName": "..." }
+    }
+  ],
+  "meta": {
+    "total": 1,
+    "page": 1,
+    "limit": 10,
+    "totalPages": 1,
+    "hasNextPage": false,
+    "hasPreviousPage": false
+  }
+}
+```
+
+---
+
+#### 17.2.5 Single Adjustment Details
+
+- **Endpoint**: `GET /stock-adjustments/:id`
+- **Access**: Authenticated
+- **Response (`200 OK`)**: Full `StockAdjustment` entity with `product`, `variant`, `warehouse`, and `adjustedBy` relations.
 
 ---
 
