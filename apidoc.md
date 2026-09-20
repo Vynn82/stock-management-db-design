@@ -831,7 +831,7 @@ Directly creates and activates a product, its variants, and initial warehouse st
 
 ### 13.7 Download Direct Product Import Template
 
-Downloads a pre-formatted Excel `.xlsx` template containing styled headers, sample guide rows (products with variants and products without variants), and empty entry rows.
+Downloads a pre-formatted clean Excel `.xlsx` template containing styled title, request type header, column names, and empty bordered entry rows ready for filling (no pre-filled sample data, identical to `/requests/import/template?type=PRODUCT_CREATE`).
 
 - **Endpoint**: `GET /products/import/template`
 - **Access**: Public (`@Public()`)
