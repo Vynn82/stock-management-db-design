@@ -1,6 +1,6 @@
 # 📦 Stock Management System - API Documentation
 
-A comprehensive guide and reference for all endpoints, authentication rules, JSON schemas, form-data payloads, and workflows in the Stock Management API.
+A comprehensive guide and reference for all endpoints, authentication rules, global pagination, JSON schemas, form-data payloads, and workflows in the Stock Management API.
 
 ---
 
@@ -8,25 +8,27 @@ A comprehensive guide and reference for all endpoints, authentication rules, JSO
 
 1. [General Information & Headers](#1-general-information--headers)
 2. [Global Guards & RBAC Architecture](#2-global-guards--rbac-architecture)
-3. [Authentication API (`/auth`)](#3-authentication-api-auth)
-4. [User Management API (`/users`)](#4-user-management-api-users)
-5. [Roles & Role-Menu/Permission API (`/roles`)](#5-roles--role-menupermission-api-roles)
-6. [Permissions API (`/permissions`)](#6-permissions-api-permissions)
-7. [Menu Navigation API (`/menu`)](#7-menu-navigation-api-menu)
-8. [Brands API (`/brands`)](#8-brands-api-brands)
-9. [Categories API (`/categories`)](#9-categories-api-categories)
-10. [Suppliers API (`/suppliers`)](#10-suppliers-api-suppliers)
-11. [Warehouses API (`/warehouses`)](#11-warehouses-api-warehouses)
-12. [Products API (`/products`)](#12-products-api-products)
-13. [Product Variants API (`/product-variants`)](#13-product-variants-api-product-variants)
-14. [Requests & Stock Approval Workflow API (`/requests`)](#14-requests--stock-approval-workflow-api-requests)
-    - [Excel Template Download](#141-download-excel-template)
-    - [Excel Import](#142-excel-import)
-    - [Manual Request Creation (Multipart Form-Data)](#143-create-request-manually)
-    - [Detailed Form-Data Examples by Request Type](#144-detailed-multipartform-data-examples)
-    - [Approval & Rejection (Commit)](#145-commit--approve--reject-request)
-15. [Mails & Notifications API (`/mails`)](#15-mails--notifications-api-mails)
-16. [Direct Stock & Adjustments API (`/stock`, `/stock-adjustments`)](#16-direct-stock--adjustments-api)
+3. [Global Pagination System](#3-global-pagination-system)
+4. [Authentication API (`/auth`)](#4-authentication-api-auth)
+5. [User Management API (`/users`)](#5-user-management-api-users)
+6. [Roles & Role-Menu/Permission API (`/roles`)](#6-roles--role-menupermission-api-roles)
+7. [Permissions API (`/permissions`)](#7-permissions-api-permissions)
+8. [Menu Navigation API (`/menu`)](#8-menu-navigation-api-menu)
+9. [Brands API (`/brands`)](#9-brands-api-brands)
+10. [Categories API (`/categories`)](#10-categories-api-categories)
+11. [Suppliers API (`/suppliers`)](#11-suppliers-api-suppliers)
+12. [Warehouses API (`/warehouses`)](#12-warehouses-api-warehouses)
+13. [Products API (`/products`)](#13-products-api-products)
+14. [Product Variants API (`/product-variants`)](#14-product-variants-api-product-variants)
+15. [Requests & Stock Approval Workflow API (`/requests`)](#15-requests--stock-approval-workflow-api-requests)
+    - [Excel Template Download](#151-download-excel-template)
+    - [Excel Import](#152-excel-import)
+    - [Manual Request Creation (Multipart Form-Data)](#153-create-request-manually)
+    - [Detailed Form-Data Examples by Request Type](#154-detailed-multipartform-data-examples)
+    - [Approval & Rejection (Commit)](#155-commit--approve--reject-request)
+16. [Mails & Notifications API (`/mails`)](#16-mails--notifications-api-mails)
+17. [Direct Stock & Adjustments API (`/stock`, `/stock-adjustments`)](#17-direct-stock--adjustments-api)
+18. [Sales, Profit & Inventory Reports API (`/reports`)](#18-sales-profit--inventory-reports-api)
 
 ---
 
@@ -61,9 +63,58 @@ The API implements three global application guards:
 
 ---
 
-## 3. Authentication API (`/auth`)
+## 3. Global Pagination System
 
-### 3.1 Login
+All list endpoints support standardized query parameters and return a unified pagination envelope.
+
+### 3.1 Query Parameters
+
+| Parameter | Type     | Default      | Constraints          | Description                                  |
+| :-------- | :------- | :----------- | :------------------- | :------------------------------------------- |
+| `page`    | `number` | `1`          | Min: `1`             | The page number to retrieve                  |
+| `limit`   | `number` | `10`         | Min: `1`, Max: `100` | The number of records per page               |
+| `search`  | `string` | _(optional)_ | -                    | Keyword search across relevant entity fields |
+
+Example URL:
+
+```http
+GET /products?page=2&limit=15&search=iphone
+```
+
+### 3.2 Paginated Response Structure
+
+```json
+{
+  "data": [ ... ],
+  "meta": {
+    "total": 45,
+    "page": 2,
+    "limit": 15,
+    "totalPages": 3,
+    "hasNextPage": true,
+    "hasPreviousPage": true
+  }
+}
+```
+
+### 3.3 How Developers Use It in Code
+
+The pagination system is reusable across any module via `src/common/pagination`:
+
+```typescript
+import {
+  PaginationDto,
+  PaginatedResult,
+  createPaginatedResult,
+  getPaginationOptions,
+} from '../common/pagination';
+```
+
+---
+
+## 4. Authentication API (`/auth`)
+
+### 4.1 Login
 
 - **Endpoint**: `POST /auth/login`
 - **Access**: Public (`@Public()`)
@@ -123,7 +174,7 @@ The API implements three global application guards:
 
 ---
 
-### 3.2 Change Password
+### 4.2 Change Password
 
 - **Endpoint**: `POST /auth/change-password`
 - **Access**: Authenticated (`@AllowPasswordChange()`)
@@ -138,13 +189,6 @@ The API implements three global application guards:
 }
 ```
 
-#### Field Specifications
-
-| Field             | Type     | Required | Description                         |
-| :---------------- | :------- | :------- | :---------------------------------- |
-| `currentPassword` | `string` | Yes      | Current password                    |
-| `newPassword`     | `string` | Yes      | New password (minimum 8 characters) |
-
 #### Response (200 OK)
 
 ```json
@@ -155,7 +199,7 @@ The API implements three global application guards:
 
 ---
 
-### 3.3 Refresh Token
+### 4.3 Refresh Token
 
 - **Endpoint**: `POST /auth/refresh`
 - **Access**: Public (`@AllowPasswordChange()`)
@@ -180,55 +224,66 @@ The API implements three global application guards:
 
 ---
 
-## 4. User Management API (`/users`)
+## 5. User Management API (`/users`)
 
-### 4.1 Get Current Profile & Permissions
+### 5.1 Get Current Profile & Permissions
 
 - **Endpoint**: `GET /users/me`
 - **Access**: Authenticated
 
 #### Response (200 OK)
 
-Returns user record with profile, roles array, permissions array, and hierarchical menus tree.
+Returns current authenticated user record with profile, roles array, permissions array, and hierarchical menus tree.
 
 ---
 
-### 4.2 List All Users
+### 5.2 List All Users (Paginated)
 
 - **Endpoint**: `GET /users`
 - **Access**: Authenticated + `@RequirePermission('USER_VIEW')`
+- **Query Parameters**: `?page=1&limit=10&search=dara` _(Search matches `staffId`, `firstName`, `lastName`, `email`, `phone`)_
 
 #### Response (200 OK)
 
 ```json
-[
-  {
-    "id": "7fa118cf-bfd3-4a11-8e5f-1550c60da6e2",
-    "staffId": "KH00001",
-    "status": "ACTIVE",
-    "mustChangePassword": false,
-    "profile": {
-      "firstName": "John",
-      "lastName": "Doe",
-      "email": "admin@example.com",
-      "phone": "+85512345678",
-      "avatar": "https://..."
-    },
-    "userRoles": [
-      {
-        "role": {
-          "id": "d3b07384-d113-4603-a128-490b4d455498",
-          "name": "SUPER_ADMIN"
+{
+  "data": [
+    {
+      "id": "7fa118cf-bfd3-4a11-8e5f-1550c60da6e2",
+      "staffId": "KH00001",
+      "status": "ACTIVE",
+      "mustChangePassword": false,
+      "profile": {
+        "firstName": "John",
+        "lastName": "Doe",
+        "email": "admin@example.com",
+        "phone": "+85512345678",
+        "avatar": "https://..."
+      },
+      "userRoles": [
+        {
+          "role": {
+            "id": "d3b07384-d113-4603-a128-490b4d455498",
+            "name": "SUPER_ADMIN"
+          }
         }
-      }
-    ]
+      ]
+    }
+  ],
+  "meta": {
+    "total": 1,
+    "page": 1,
+    "limit": 10,
+    "totalPages": 1,
+    "hasNextPage": false,
+    "hasPreviousPage": false
   }
-]
+}
 ```
 
 ---
 
-### 4.3 Create User (Staff)
+### 5.3 Create User (Staff)
 
 - **Endpoint**: `POST /users`
 - **Access**: Authenticated
@@ -246,16 +301,6 @@ Returns user record with profile, roles array, permissions array, and hierarchic
 }
 ```
 
-#### Field Specifications
-
-| Field            | Type     | Required | Description                               |
-| :--------------- | :------- | :------- | :---------------------------------------- |
-| `firstName`      | `string` | Yes      | Max 100 characters                        |
-| `lastName`       | `string` | Yes      | Max 100 characters                        |
-| `email`          | `string` | Yes      | Valid email format, max 255 chars, unique |
-| `phone`          | `string` | No       | Max 30 characters                         |
-| `telegramChatId` | `string` | No       | Max 100 characters                        |
-
 #### Response (201 Created)
 
 ```json
@@ -265,11 +310,9 @@ Returns user record with profile, roles array, permissions array, and hierarchic
 }
 ```
 
-_(A welcome email with login credentials is automatically dispatched to the staff email)_
-
 ---
 
-### 4.4 Get User Roles
+### 5.4 Get User Roles
 
 - **Endpoint**: `GET /users/:id/roles`
 - **Access**: Authenticated
@@ -277,7 +320,7 @@ _(A welcome email with login credentials is automatically dispatched to the staf
 
 ---
 
-### 4.5 Update User Role
+### 5.5 Update User Role
 
 - **Endpoint**: `PUT /users/:id/role`
 - **Access**: Authenticated + `@RequirePermission('USER_ROLE_UPDATE')`
@@ -294,23 +337,23 @@ _(A welcome email with login credentials is automatically dispatched to the staf
 
 ---
 
-## 5. Roles & Role-Menu/Permission API (`/roles`)
+## 6. Roles & Role-Menu/Permission API (`/roles`)
 
-### 5.1 Endpoints Summary
+### 6.1 Endpoints Summary
 
-| Method   | Endpoint                                   | Permission    | Description                                    |
-| :------- | :----------------------------------------- | :------------ | :--------------------------------------------- |
-| `GET`    | `/roles`                                   | -             | List all roles                                 |
-| `POST`   | `/roles`                                   | `ROLE_CREATE` | Create a new custom role                       |
-| `GET`    | `/roles/:id`                               | -             | Get role details                               |
-| `GET`    | `/roles/:id/permissions`                   | -             | Get permissions assigned to role               |
-| `POST`   | `/roles/:id/permissions`                   | `ROLE_UPDATE` | Add permissions to role                        |
-| `GET`    | `/roles/:id/permissions/manage`            | `ROLE_VIEW`   | Grouped permission matrix with assigned status |
-| `DELETE` | `/roles/:roleId/permissions/:permissionId` | `ROLE_UPDATE` | Remove single permission from role             |
-| `GET`    | `/roles/:id/menus`                         | -             | Get role menus tree                            |
-| `GET`    | `/roles/:id/menus/manage`                  | -             | Get menu checklist for role management         |
-| `POST`   | `/roles/:roleId/menus/:menuId`             | -             | Assign menu item to role                       |
-| `DELETE` | `/roles/:roleId/menus/:menuId`             | -             | Unassign menu item from role                   |
+| Method   | Endpoint                                   | Permission    | Query / Params                | Description                                    |
+| :------- | :----------------------------------------- | :------------ | :---------------------------- | :--------------------------------------------- |
+| `GET`    | `/roles`                                   | -             | `?page=1&limit=10&search=...` | List all roles (supports optional pagination)  |
+| `POST`   | `/roles`                                   | `ROLE_CREATE` | -                             | Create a new custom role                       |
+| `GET`    | `/roles/:id`                               | -             | `:id` (UUID)                  | Get role details                               |
+| `GET`    | `/roles/:id/permissions`                   | -             | `:id` (UUID)                  | Get permissions assigned to role               |
+| `POST`   | `/roles/:id/permissions`                   | `ROLE_UPDATE` | `:id` (UUID)                  | Add permissions to role                        |
+| `GET`    | `/roles/:id/permissions/manage`            | `ROLE_VIEW`   | `:id` (UUID)                  | Grouped permission matrix with assigned status |
+| `DELETE` | `/roles/:roleId/permissions/:permissionId` | `ROLE_UPDATE` | `:roleId`, `:permissionId`    | Remove single permission from role             |
+| `GET`    | `/roles/:id/menus`                         | -             | `:id` (UUID)                  | Get role menus tree                            |
+| `GET`    | `/roles/:id/menus/manage`                  | -             | `:id` (UUID)                  | Get menu checklist for role management         |
+| `POST`   | `/roles/:roleId/menus/:menuId`             | -             | `:roleId`, `:menuId`          | Assign menu item to role                       |
+| `DELETE` | `/roles/:roleId/menus/:menuId`             | -             | `:roleId`, `:menuId`          | Unassign menu item from role                   |
 
 #### Request Bodies
 
@@ -335,17 +378,17 @@ _(A welcome email with login credentials is automatically dispatched to the staf
 
 ---
 
-## 6. Permissions API (`/permissions`)
+## 7. Permissions API (`/permissions`)
 
-### 6.1 Endpoints Summary
+### 7.1 Endpoints Summary
 
-| Method | Endpoint                 | Permission          | Description                                   |
-| :----- | :----------------------- | :------------------ | :-------------------------------------------- |
-| `GET`  | `/permissions`           | -                   | List all permissions                          |
-| `GET`  | `/permissions/:id`       | -                   | Get permission by ID                          |
-| `POST` | `/permissions`           | -                   | Create individual permission                  |
-| `POST` | `/permissions/bulk`      | -                   | Bulk create multiple permissions              |
-| `POST` | `/permissions/resources` | `PERMISSION_CREATE` | Auto-generate CRUD permissions for a resource |
+| Method | Endpoint                 | Permission          | Query / Params                | Description                                         |
+| :----- | :----------------------- | :------------------ | :---------------------------- | :-------------------------------------------------- |
+| `GET`  | `/permissions`           | -                   | `?page=1&limit=10&search=...` | List all permissions (supports optional pagination) |
+| `GET`  | `/permissions/:id`       | -                   | `:id` (UUID)                  | Get permission by ID                                |
+| `POST` | `/permissions`           | -                   | -                             | Create individual permission                        |
+| `POST` | `/permissions/bulk`      | -                   | -                             | Bulk create multiple permissions                    |
+| `POST` | `/permissions/resources` | `PERMISSION_CREATE` | -                             | Auto-generate CRUD permissions for a resource       |
 
 #### Request Bodies
 
@@ -379,13 +422,11 @@ _(A welcome email with login credentials is automatically dispatched to the staf
 }
 ```
 
-_(Generates `SHIPMENTS_CREATE`, `SHIPMENTS_VIEW`, `SHIPMENTS_UPDATE`, `SHIPMENTS_DELETE`)_
-
 ---
 
-## 7. Menu Navigation API (`/menu`)
+## 8. Menu Navigation API (`/menu`)
 
-### 7.1 Endpoints Summary
+### 8.1 Endpoints Summary
 
 | Method   | Endpoint    | Permission    | Description                |
 | :------- | :---------- | :------------ | :------------------------- |
@@ -423,18 +464,18 @@ _(Generates `SHIPMENTS_CREATE`, `SHIPMENTS_VIEW`, `SHIPMENTS_UPDATE`, `SHIPMENTS
 
 ---
 
-## 8. Brands API (`/brands`)
+## 9. Brands API (`/brands`)
 
-### 8.1 Endpoints Summary
+### 9.1 Endpoints Summary
 
-| Method  | Endpoint                 | Description          |
-| :------ | :----------------------- | :------------------- |
-| `POST`  | `/brands`                | Create new brand     |
-| `GET`   | `/brands`                | List all brands      |
-| `GET`   | `/brands/:id`            | Get brand by ID      |
-| `PATCH` | `/brands/:id`            | Update brand details |
-| `PATCH` | `/brands/:id/deactivate` | Deactivate brand     |
-| `PATCH` | `/brands/:id/activate`   | Activate brand       |
+| Method  | Endpoint                 | Query / Params                | Description                        |
+| :------ | :----------------------- | :---------------------------- | :--------------------------------- |
+| `POST`  | `/brands`                | -                             | Create new brand                   |
+| `GET`   | `/brands`                | `?page=1&limit=10&search=...` | List all active brands (Paginated) |
+| `GET`   | `/brands/:id`            | `:id` (UUID)                  | Get brand by ID                    |
+| `PATCH` | `/brands/:id`            | `:id` (UUID)                  | Update brand details               |
+| `PATCH` | `/brands/:id/deactivate` | `:id` (UUID)                  | Deactivate brand                   |
+| `PATCH` | `/brands/:id/activate`   | `:id` (UUID)                  | Activate brand                     |
 
 #### Request Bodies
 
@@ -460,19 +501,19 @@ _(Generates `SHIPMENTS_CREATE`, `SHIPMENTS_VIEW`, `SHIPMENTS_UPDATE`, `SHIPMENTS
 
 ---
 
-## 9. Categories API (`/categories`)
+## 10. Categories API (`/categories`)
 
-### 9.1 Endpoints Summary
+### 10.1 Endpoints Summary
 
-| Method   | Endpoint                     | Description         |
-| :------- | :--------------------------- | :------------------ |
-| `POST`   | `/categories`                | Create category     |
-| `GET`    | `/categories`                | List all categories |
-| `GET`    | `/categories/:id`            | Get category by ID  |
-| `PATCH`  | `/categories/:id`            | Update category     |
-| `DELETE` | `/categories/:id`            | Delete category     |
-| `PATCH`  | `/categories/:id/deactivate` | Deactivate category |
-| `PATCH`  | `/categories/:id/activate`   | Activate category   |
+| Method   | Endpoint                     | Query / Params                | Description                            |
+| :------- | :--------------------------- | :---------------------------- | :------------------------------------- |
+| `POST`   | `/categories`                | -                             | Create category                        |
+| `GET`    | `/categories`                | `?page=1&limit=10&search=...` | List all active categories (Paginated) |
+| `GET`    | `/categories/:id`            | `:id` (UUID)                  | Get category by ID                     |
+| `PATCH`  | `/categories/:id`            | `:id` (UUID)                  | Update category                        |
+| `DELETE` | `/categories/:id`            | `:id` (UUID)                  | Delete category                        |
+| `PATCH`  | `/categories/:id/deactivate` | `:id` (UUID)                  | Deactivate category                    |
+| `PATCH`  | `/categories/:id/activate`   | `:id` (UUID)                  | Activate category                      |
 
 #### Request Bodies
 
@@ -487,28 +528,20 @@ _(Generates `SHIPMENTS_CREATE`, `SHIPMENTS_VIEW`, `SHIPMENTS_UPDATE`, `SHIPMENTS
 }
 ```
 
-- **Update Category (`PATCH /categories/:id`)**:
-
-```json
-{
-  "name": "Laptops & MacBooks"
-}
-```
-
 ---
 
-## 10. Suppliers API (`/suppliers`)
+## 11. Suppliers API (`/suppliers`)
 
-### 10.1 Endpoints Summary
+### 11.1 Endpoints Summary
 
-| Method  | Endpoint                    | Description         |
-| :------ | :-------------------------- | :------------------ |
-| `POST`  | `/suppliers`                | Create supplier     |
-| `GET`   | `/suppliers`                | List all suppliers  |
-| `GET`   | `/suppliers/:id`            | Get supplier by ID  |
-| `PATCH` | `/suppliers/:id`            | Update supplier     |
-| `PATCH` | `/suppliers/:id/deactivate` | Deactivate supplier |
-| `PATCH` | `/suppliers/:id/activate`   | Activate supplier   |
+| Method  | Endpoint                    | Query / Params                | Description                           |
+| :------ | :-------------------------- | :---------------------------- | :------------------------------------ |
+| `POST`  | `/suppliers`                | -                             | Create supplier                       |
+| `GET`   | `/suppliers`                | `?page=1&limit=10&search=...` | List all active suppliers (Paginated) |
+| `GET`   | `/suppliers/:id`            | `:id` (UUID)                  | Get supplier by ID                    |
+| `PATCH` | `/suppliers/:id`            | `:id` (UUID)                  | Update supplier                       |
+| `PATCH` | `/suppliers/:id/deactivate` | `:id` (UUID)                  | Deactivate supplier                   |
+| `PATCH` | `/suppliers/:id/activate`   | `:id` (UUID)                  | Activate supplier                     |
 
 #### Request Bodies
 
@@ -527,18 +560,18 @@ _(Generates `SHIPMENTS_CREATE`, `SHIPMENTS_VIEW`, `SHIPMENTS_UPDATE`, `SHIPMENTS
 
 ---
 
-## 11. Warehouses API (`/warehouses`)
+## 12. Warehouses API (`/warehouses`)
 
-### 11.1 Endpoints Summary
+### 12.1 Endpoints Summary
 
-| Method  | Endpoint                     | Description          |
-| :------ | :--------------------------- | :------------------- |
-| `POST`  | `/warehouses`                | Create warehouse     |
-| `GET`   | `/warehouses`                | List all warehouses  |
-| `GET`   | `/warehouses/:id`            | Get warehouse by ID  |
-| `PATCH` | `/warehouses/:id`            | Update warehouse     |
-| `PATCH` | `/warehouses/:id/deactivate` | Deactivate warehouse |
-| `PATCH` | `/warehouses/:id/activate`   | Activate warehouse   |
+| Method  | Endpoint                     | Query / Params                | Description                            |
+| :------ | :--------------------------- | :---------------------------- | :------------------------------------- |
+| `POST`  | `/warehouses`                | -                             | Create warehouse                       |
+| `GET`   | `/warehouses`                | `?page=1&limit=10&search=...` | List all active warehouses (Paginated) |
+| `GET`   | `/warehouses/:id`            | `:id` (UUID)                  | Get warehouse by ID                    |
+| `PATCH` | `/warehouses/:id`            | `:id` (UUID)                  | Update warehouse                       |
+| `PATCH` | `/warehouses/:id/deactivate` | `:id` (UUID)                  | Deactivate warehouse                   |
+| `PATCH` | `/warehouses/:id/activate`   | `:id` (UUID)                  | Activate warehouse                     |
 
 #### Request Bodies
 
@@ -559,83 +592,459 @@ _(Generates `SHIPMENTS_CREATE`, `SHIPMENTS_VIEW`, `SHIPMENTS_UPDATE`, `SHIPMENTS
 
 ---
 
-## 12. Products API (`/products`)
+## 13. Products API (`/products`)
 
 _(Note: Products and stock are registered and modified through the Approval Workflow in `/requests`)_
 
-| Method | Endpoint        | Description                                                    |
-| :----- | :-------------- | :------------------------------------------------------------- |
-| `GET`  | `/products`     | List all products with category, brand, supplier, and variants |
-| `GET`  | `/products/:id` | Get product details by ID                                      |
+### 13.1 List Products (Paginated)
 
----
+- **Endpoint**: `GET /products`
+- **Query Parameters**: `?page=1&limit=10&search=...` _(Search matches product `name`, `code`, `sku`, `barcode`)_
 
-## 13. Product Variants API (`/product-variants`)
-
-| Method  | Endpoint                           | Description                                |
-| :------ | :--------------------------------- | :----------------------------------------- |
-| `GET`   | `/product-variants`                | List variants (Query: `?productId=<UUID>`) |
-| `GET`   | `/product-variants/:id`            | Get variant by ID                          |
-| `POST`  | `/product-variants`                | Create product variant                     |
-| `PATCH` | `/product-variants/:id`            | Update variant details                     |
-| `PATCH` | `/product-variants/:id/deactivate` | Deactivate variant                         |
-| `PATCH` | `/product-variants/:id/activate`   | Activate variant                           |
-
-#### Request Body (`POST /product-variants`):
+#### Response (200 OK)
 
 ```json
 {
-  "productId": "047c34d3-e7f0-4660-84cf-cb09ebbcbaae",
-  "code": "MBP16-M3-SLV",
-  "name": "MacBook Pro 16\" M3 Max Silver",
-  "sku": "MBP16-M3-SLV-1TB",
-  "barcode": "885909123456",
-  "attributes": {
-    "color": "Silver",
-    "chip": "M3 Max",
-    "storage": "1TB",
-    "ram": "36GB"
+  "data": [
+    {
+      "id": "047c34d3-e7f0-4660-84cf-cb09ebbcbaae",
+      "code": "IPHONE-15",
+      "name": "Apple iPhone 15",
+      "costPrice": 700,
+      "sellingPrice": 899,
+      "minimumStock": 5,
+      "maximumStock": 100,
+      "category": { "id": "...", "name": "Smartphones" },
+      "brand": { "id": "...", "name": "Apple" },
+      "supplier": { "id": "...", "name": "Global Tech" },
+      "variants": [ ... ],
+      "stocks": [ ... ]
+    }
+  ],
+  "meta": {
+    "total": 1,
+    "page": 1,
+    "limit": 10,
+    "totalPages": 1,
+    "hasNextPage": false,
+    "hasPreviousPage": false
+  }
+}
+```
+
+### 13.2 Get Product Details
+
+- **Endpoint**: `GET /products/:id`
+
+### 13.3 Delete Product
+
+- **Endpoint**: `DELETE /products/:id`
+- **Response (200 OK)**:
+  ```json
+  {
+    "message": "Product deleted successfully"
+  }
+  ```
+  _(Note: If product is referenced by historical transactions/stock adjustments, returns 400 with a suggestion to deactivate instead)_
+
+### 13.4 Deactivate Product
+
+- **Endpoint**: `PATCH /products/:id/deactivate`
+- **Response (200 OK)**:
+  ```json
+  {
+    "message": "Product deactivated successfully"
+  }
+  ```
+
+### 13.5 Activate Product
+
+- **Endpoint**: `PATCH /products/:id/activate`
+- **Response (200 OK)**:
+  ```json
+  {
+    "message": "Product activated successfully"
+  }
+  ```
+
+### 13.6 Direct Product Creation (Admin & Super Admin Only)
+
+Directly creates and activates a product, its variants, and initial warehouse stock in the system immediately **without requiring approval or approvers**.
+
+- **Endpoint**: `POST /products`
+- **Access**: Restricted to `ADMIN` and `SUPER_ADMIN` roles (`@RequireRoles('ADMIN', 'SUPER_ADMIN')`).
+- **Content-Type**: `multipart/form-data` or `application/json`
+
+#### Form-Data Keys (or JSON Body)
+
+| Key                     | Type                       | Required | Description                                                        |
+| :---------------------- | :------------------------- | :------- | :----------------------------------------------------------------- |
+| `product`               | `string` (JSON) / `object` | **Yes**  | Product master info (code, name, categoryCode, unit, prices, etc.) |
+| `variants`              | `string` (JSON) / `array`  | Optional | Array of variants if `hasVariants: true`                           |
+| `stock`                 | `string` (JSON) / `array`  | Optional | Array of initial warehouse stocks                                  |
+| `image`                 | `File` (image)             | Optional | Product image upload                                               |
+| `variantImage[<code\>]` | `File` (image)             | Optional | Variant image upload per variant code                              |
+| `remark`                | `string`                   | Optional | Admin creation note                                                |
+
+#### Example JSON / Form-Data Body
+
+```json
+{
+  "product": {
+    "productCode": "IPHONE-16-PRO",
+    "productName": "Apple iPhone 16 Pro",
+    "categoryCode": "PHONES",
+    "brandCode": "APPLE",
+    "supplierCode": "GLOBAL-TECH",
+    "hasVariants": true,
+    "unit": "unit",
+    "productSku": "IP16P-BASE",
+    "productBarcode": "885909999001",
+    "productCostPrice": 850,
+    "productSellingPrice": 1099,
+    "minimumStock": 5,
+    "maximumStock": 100
   },
-  "costPrice": 2800.0,
-  "sellingPrice": 3499.0
+  "variants": [
+    {
+      "variantCode": "IP16P-128-BLK",
+      "variantName": "128GB Space Black",
+      "variantSku": "IP16P-128-BLK",
+      "variantBarcode": "885909999002",
+      "variantCostPrice": 850,
+      "variantSellingPrice": 1099,
+      "variantAttributes": { "Storage": "128GB", "Color": "Space Black" }
+    }
+  ],
+  "stock": [
+    {
+      "productCode": "IPHONE-16-PRO",
+      "variantCode": "IP16P-128-BLK",
+      "warehouseCode": "WH-MAIN",
+      "quantity": 20
+    }
+  ],
+  "remark": "Direct catalog addition by Super Admin"
+}
+```
+
+#### Response (201 Created)
+
+```json
+{
+  "message": "Product created successfully",
+  "product": {
+    "id": "184d5df6-b769-42b7-8777-aef8c49e7bdf",
+    "code": "IPHONE-16-PRO",
+    "name": "Apple iPhone 16 Pro",
+    "image": "https://res.cloudinary.com/.../product.jpg",
+    "description": null,
+    "categoryId": "28e83c27-ff84-4fe1-ba56-07759a933230",
+    "brandId": "f784e8cb-09a8-4fb3-a9d9-ccb6028a1be5",
+    "supplierId": "8756c605-ff08-4148-bcbf-91bbd33190be",
+    "hasVariants": true,
+    "unit": "unit",
+    "sku": "IP16P-BASE",
+    "barcode": "885909999001",
+    "costPrice": 850,
+    "sellingPrice": 1099,
+    "minimumStock": 5,
+    "maximumStock": 100,
+    "isActive": true,
+    "createdAt": "2026-09-20T10:48:00.000Z",
+    "updatedAt": "2026-09-20T10:48:00.000Z",
+    "category": {
+      "id": "28e83c27-ff84-4fe1-ba56-07759a933230",
+      "code": "PHONES",
+      "name": "Smartphones"
+    },
+    "brand": {
+      "id": "f784e8cb-09a8-4fb3-a9d9-ccb6028a1be5",
+      "code": "APPLE",
+      "name": "Apple"
+    },
+    "supplier": {
+      "id": "8756c605-ff08-4148-bcbf-91bbd33190be",
+      "code": "GLOBAL-TECH",
+      "name": "Global Tech Distribution"
+    },
+    "variants": [
+      {
+        "id": "b3e0d8ca-6a56-427f-b47a-ea871866cf17",
+        "productId": "184d5df6-b769-42b7-8777-aef8c49e7bdf",
+        "code": "IP16P-128-BLK",
+        "name": "128GB Space Black",
+        "sku": "IP16P-128-BLK",
+        "barcode": "885909999002",
+        "attributes": {
+          "Storage": "128GB",
+          "Color": "Space Black"
+        },
+        "image": null,
+        "costPrice": 850,
+        "sellingPrice": 1099,
+        "isActive": true
+      }
+    ],
+    "stocks": [
+      {
+        "id": "902d33c8-fbb6-4654-8c63-4ceae5691090",
+        "productId": "184d5df6-b769-42b7-8777-aef8c49e7bdf",
+        "variantId": "b3e0d8ca-6a56-427f-b47a-ea871866cf17",
+        "warehouseId": "7e6ad654-47b2-4d0d-9fa6-23961f7158fe",
+        "quantity": 20
+      }
+    ]
+  }
 }
 ```
 
 ---
 
-## 14. Requests & Stock Approval Workflow API (`/requests`)
+### 13.7 Download Direct Product Import Template
+
+Downloads a pre-formatted Excel `.xlsx` template containing styled headers, sample guide rows (products with variants and products without variants), and empty entry rows.
+
+- **Endpoint**: `GET /products/import/template`
+- **Access**: Public (`@Public()`)
+- **Response**: Binary Excel `.xlsx` file download (`products_direct_import_template.xlsx`).
+
+#### Columns Included:
+
+| Column Name             | Required    | Description                                             |
+| :---------------------- | :---------- | :------------------------------------------------------ |
+| `product_code`          | **Yes**     | Unique product code (e.g. `IPHONE-16-PRO`)              |
+| `product_name`          | **Yes**     | Product display name                                    |
+| `description`           | Optional    | Product description                                     |
+| `category_code`         | **Yes**     | Category code (must exist and be active, e.g. `PHONES`) |
+| `brand_code`            | Optional    | Brand code (e.g. `APPLE`)                               |
+| `supplier_code`         | Optional    | Supplier code (e.g. `GLOBAL-TECH`)                      |
+| `has_variants`          | **Yes**     | `TRUE` or `FALSE`                                       |
+| `unit`                  | **Yes**     | Measurement unit (e.g. `unit`, `pcs`, `box`)            |
+| `product_sku`           | **Yes**     | Product master SKU (must be unique)                     |
+| `product_barcode`       | Optional    | Product barcode                                         |
+| `base_price`            | Optional    | Cost / Base price (spending)                            |
+| `selling_price`         | Optional    | Selling price                                           |
+| `minimum_stock`         | Optional    | Min stock alert threshold                               |
+| `maximum_stock`         | Optional    | Max stock capacity                                      |
+| `variant_code`          | Conditional | Variant code (Required if `has_variants: TRUE`)         |
+| `variant_name`          | Conditional | Variant name (e.g. `128GB Space Black`)                 |
+| `variant_sku`           | Conditional | Variant SKU (must be unique)                            |
+| `variant_barcode`       | Optional    | Variant barcode                                         |
+| `variant_attributes`    | Optional    | Attributes in `Key=Value;Key2=Value2` format or JSON    |
+| `variant_base_price`    | Optional    | Variant cost / base price                               |
+| `variant_selling_price` | Optional    | Variant selling price                                   |
+| `warehouse_code`        | Optional    | Initial stock warehouse code (e.g. `WH-MAIN`)           |
+| `quantity`              | Optional    | Initial stock quantity (positive number)                |
+
+---
+
+### 13.8 Direct Product Excel Import (Admin & Super Admin Only)
+
+Directly batch imports products, variants, and initial stocks from an Excel `.xlsx` spreadsheet straight into the database without requiring approval. The import executes within a single atomic database transaction.
+
+- **Endpoint**: `POST /products/import`
+- **Access**: Restricted to `ADMIN` and `SUPER_ADMIN` roles (`@RequireRoles('ADMIN', 'SUPER_ADMIN')`).
+- **Content-Type**: `multipart/form-data`
+
+#### Form-Data Keys:
+
+| Key    | Type | Required | Description                    |
+| :----- | :--- | :------- | :----------------------------- |
+| `file` | File | **Yes**  | The filled `.xlsx` spreadsheet |
+
+#### Response (201 Created):
+
+```json
+{
+  "message": "Successfully imported 2 product(s)",
+  "importedCount": 2,
+  "products": [
+    {
+      "id": "184d5df6-b769-42b7-8777-aef8c49e7bdf",
+      "code": "IPHONE-16-PRO",
+      "name": "Apple iPhone 16 Pro",
+      "hasVariants": true,
+      "sku": "IP16P-BASE",
+      "costPrice": 850,
+      "sellingPrice": 1099,
+      "isActive": true,
+      "category": { "code": "PHONES", "name": "Smartphones" },
+      "brand": { "code": "APPLE", "name": "Apple" },
+      "supplier": { "code": "GLOBAL-TECH", "name": "Global Tech Distribution" },
+      "variants": [
+        {
+          "code": "IP16P-128-BLK",
+          "sku": "IP16P-128-BLK",
+          "sellingPrice": 1099
+        },
+        {
+          "code": "IP16P-256-NAT",
+          "sku": "IP16P-256-NAT",
+          "sellingPrice": 1199
+        }
+      ],
+      "stocks": [
+        { "warehouseId": "...", "quantity": 20 },
+        { "warehouseId": "...", "quantity": 15 }
+      ]
+    },
+    {
+      "id": "295e6ef7-c870-53c8-9888-bfa9d50f8cef",
+      "code": "AIRPODS-PRO-2",
+      "name": "AirPods Pro 2nd Gen",
+      "hasVariants": false,
+      "sku": "APP2-BASE",
+      "costPrice": 170,
+      "sellingPrice": 249,
+      "isActive": true,
+      "category": { "code": "ACCESSORIES", "name": "Accessories" },
+      "variants": [],
+      "stocks": [{ "warehouseId": "...", "quantity": 50 }]
+    }
+  ]
+}
+```
+
+---
+
+### 13.9 Export Products to Excel
+
+Exports all active products, their variants, and current warehouse stock records into an Excel `.xlsx` spreadsheet. The exported file uses the identical column format as the import template, enabling round-trip export, bulk editing, and re-importing.
+
+- **Endpoint**: `GET /products/export`
+- **Access**: Authenticated
+- **Response**: Binary Excel `.xlsx` file download (`products_export_YYYY-MM-DD.xlsx`).
+
+---
+
+## 14. Product Variants API (`/product-variants`)
+
+### 14.1 List Product Variants (Paginated)
+
+- **Endpoint**: `GET /product-variants`
+- **Query Parameters**:
+  - `page`: default `1`
+  - `limit`: default `10`
+  - `search`: search by variant `name`, `code`, `sku`, `barcode`
+  - `productId`: filter by parent product UUID (e.g. `?productId=047c34d3-...`)
+
+#### Response (200 OK)
+
+```json
+{
+  "data": [
+    {
+      "id": "...",
+      "code": "MBP16-M3-SLV",
+      "name": "MacBook Pro 16\" M3 Max Silver",
+      "sku": "MBP16-M3-SLV-1TB",
+      "barcode": "885909123456",
+      "costPrice": 2800,
+      "sellingPrice": 3499,
+      "product": { ... }
+    }
+  ],
+  "meta": {
+    "total": 1,
+    "page": 1,
+    "limit": 10,
+    "totalPages": 1,
+    "hasNextPage": false,
+    "hasPreviousPage": false
+  }
+}
+```
+
+### 14.2 Other Variant Endpoints
+
+| Method   | Endpoint                           | Description                     |
+| :------- | :--------------------------------- | :------------------------------ |
+| `GET`    | `/product-variants/:id`            | Get variant by ID               |
+| `POST`   | `/product-variants`                | Create product variant directly |
+| `PATCH`  | `/product-variants/:id`            | Update variant details          |
+| `DELETE` | `/product-variants/:id`            | Delete product variant          |
+| `PATCH`  | `/product-variants/:id/deactivate` | Deactivate variant              |
+| `PATCH`  | `/product-variants/:id/activate`   | Activate variant                |
+
+---
+
+## 15. Requests & Stock Approval Workflow API (`/requests`)
 
 The core workflow engine handling product creation, variant creation/updating, stock in, stock out, stock transfer, and stock adjustments.
 
-### Supported Request Types (`RequestType` Enum):
+### 15.1 List Requests (Paginated)
 
-- `PRODUCT_CREATE`
-- `PRODUCT_UPDATE`
-- `VARIANT_CREATE`
-- `VARIANT_UPDATE`
-- `STOCK_IN`
-- `STOCK_OUT`
-- `STOCK_TRANSFER`
-- `STOCK_ADJUSTMENT`
+- **Endpoint**: `GET /requests`
+- **Query Parameters**: `?page=1&limit=10&search=...` _(Search matches `requestNo` or `remark`)_
+
+#### Response (200 OK)
+
+```json
+{
+  "data": [
+    {
+      "id": "713bc492-9908-410a-8bf7-09d94943fcf8",
+      "requestNo": "REQ-20260920-0001",
+      "requestType": "PRODUCT_CREATE",
+      "status": "PENDING",
+      "currentStep": 1,
+      "remark": "New product launch Q4",
+      "requester": {
+        "id": "...",
+        "profile": { "firstName": "John", "lastName": "Doe" }
+      },
+      "items": [ ... ],
+      "approvers": [
+        {
+          "step": 1,
+          "actionType": "CERTIFIER",
+          "status": "PENDING",
+          "canAct": true
+        }
+      ]
+    }
+  ],
+  "meta": {
+    "total": 1,
+    "page": 1,
+    "limit": 10,
+    "totalPages": 1,
+    "hasNextPage": false,
+    "hasPreviousPage": false
+  }
+}
+```
 
 ---
 
-### 14.1 Download Excel Template
+### 15.2 Download Excel Template
 
 - **Endpoint**: `GET /requests/import/template?type=<REQUEST_TYPE>`
 - **Access**: Public (`@Public()`)
-- **Query Param**: `type` (one of the enum types above)
+- **Query Param**: `type` (`PRODUCT_CREATE`, `PRODUCT_UPDATE`, `VARIANT_CREATE`, `VARIANT_UPDATE`, `STOCK_IN`, `STOCK_OUT`, `STOCK_TRANSFER`, `STOCK_ADJUSTMENT`)
 - **Response**: Binary Excel `.xlsx` file download.
+
+#### Template Columns Reference (All include `base_price` & `selling_price`):
+
+| Request Type           | Excel Template Columns                                                                                                                                                                                                                                                                                                                                                                                        |
+| :--------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **`PRODUCT_CREATE`**   | `product_code`, `product_name`, `description`, `category_code`, `brand_code`, `supplier_code`, `has_variants`, `unit`, `product_sku`, `product_barcode`, **`base_price`**, **`selling_price`**, `minimum_stock`, `maximum_stock`, `variant_code`, `variant_name`, `variant_sku`, `variant_barcode`, `variant_attributes`, **`variant_base_price`**, **`variant_selling_price`**, `warehouse_code`, `quantity` |
+| **`PRODUCT_UPDATE`**   | `product_code`, `product_name`, `description`, `category_code`, `brand_code`, `supplier_code`, `unit`, `product_sku`, `product_barcode`, **`base_price`**, **`selling_price`**, `minimum_stock`, `maximum_stock`                                                                                                                                                                                              |
+| **`VARIANT_CREATE`**   | `product_code`, `variant_code`, `variant_name`, `variant_sku`, `variant_barcode`, `variant_attributes`, **`base_price`**, **`selling_price`**, `warehouse_code`, `quantity`                                                                                                                                                                                                                                   |
+| **`VARIANT_UPDATE`**   | `product_code`, `variant_code`, `variant_name`, `variant_sku`, `variant_barcode`, `variant_attributes`, **`base_price`**, **`selling_price`**                                                                                                                                                                                                                                                                 |
+| **`STOCK_IN`**         | `product_code`, `variant_code`, `warehouse_code`, `quantity`, **`base_price`**, **`selling_price`**                                                                                                                                                                                                                                                                                                           |
+| **`STOCK_OUT`**        | `product_code`, `variant_code`, `warehouse_code`, `quantity`, **`base_price`**, **`selling_price`**                                                                                                                                                                                                                                                                                                           |
+| **`STOCK_TRANSFER`**   | `product_code`, `variant_code`, `from_warehouse_code`, `to_warehouse_code`, `quantity`, **`base_price`**, **`selling_price`**                                                                                                                                                                                                                                                                                 |
+| **`STOCK_ADJUSTMENT`** | `product_code`, `variant_code`, `warehouse_code`, `quantity`, `reason`, **`base_price`**, **`selling_price`**                                                                                                                                                                                                                                                                                                 |
 
 ---
 
-### 14.2 Excel Import
+### 15.3 Excel Import
 
 - **Endpoint**: `POST /requests/import`
 - **Access**: Authenticated
 - **Content-Type**: `multipart/form-data`
-
-#### Form-Data Fields:
 
 | Key           | Type | Value / Description                                             |
 | :------------ | :--- | :-------------------------------------------------------------- |
@@ -644,13 +1053,13 @@ The core workflow engine handling product creation, variant creation/updating, s
 
 ---
 
-### 14.3 Create Request Manually
+### 15.4 Create Request Manually
 
 - **Endpoint**: `POST /requests`
 - **Access**: Authenticated
 - **Content-Type**: `multipart/form-data`
 
-#### Form-Data Keys Overview:
+#### Form-Data Keys:
 
 | Key                           | Type               | Description                                                                                                                           |
 | :---------------------------- | :----------------- | :------------------------------------------------------------------------------------------------------------------------------------ |
@@ -666,11 +1075,9 @@ The core workflow engine handling product creation, variant creation/updating, s
 
 ---
 
-### 14.4 Detailed `multipart/form-data` Examples
+### 15.5 Detailed `multipart/form-data` Examples
 
-#### 💎 Scenario 1: `PRODUCT_CREATE` (Complete Product + Variants + Initial Stock + Approvers + Images)
-
-In Postman or frontend form submission, select `form-data` body:
+#### 💎 Scenario 1: `PRODUCT_CREATE` (Product + Variants + Initial Stock + Approvers + Images)
 
 | Key                           | Type               | Content                              |
 | :---------------------------- | :----------------- | :----------------------------------- |
@@ -794,8 +1201,6 @@ In Postman or frontend form submission, select `form-data` body:
 ]
 ```
 
-_(AdjustmentType is either `"INCREASE"` or `"DECREASE"`)_
-
 ##### `approvers` JSON value:
 
 ```json
@@ -809,32 +1214,7 @@ _(AdjustmentType is either `"INCREASE"` or `"DECREASE"`)_
 
 ---
 
-#### 💎 Scenario 3: `STOCK_TRANSFER` (Warehouse-to-Warehouse Transfer)
-
-| Key               | Type               | Content          |
-| :---------------- | :----------------- | :--------------- |
-| **`requestType`** | Text               | `STOCK_TRANSFER` |
-| **`stock`**       | Text (JSON string) | See JSON below   |
-| **`approvers`**   | Text (JSON string) | See JSON below   |
-
-##### `stock` JSON value:
-
-```json
-[
-  {
-    "productCode": "MBP-16-M3",
-    "variantCode": "MBP16-BLK",
-    "fromWarehouseCode": "WH-PP-MAIN",
-    "toWarehouseCode": "WH-BRANCH-2",
-    "quantity": 5,
-    "reason": "Replenishment for Branch 2 store inventory"
-  }
-]
-```
-
----
-
-### 14.5 Commit / Approve / Reject Request
+### 15.6 Commit / Approve / Reject Request
 
 - **Endpoint**: `POST /requests/:id/commit`
 - **Access**: Authenticated (User must be assigned to the current approval step)
@@ -850,28 +1230,21 @@ _(AdjustmentType is either `"INCREASE"` or `"DECREASE"`)_
 }
 ```
 
-#### Field Specifications
+---
 
-| Field    | Type     | Required | Values / Description      |
-| :------- | :------- | :------- | :------------------------ |
-| `action` | `string` | Yes      | `"APPROVE"` or `"REJECT"` |
-| `remark` | `string` | No       | Reason or comments        |
+## 16. Mails & Notifications API (`/mails`)
+
+| Method  | Endpoint              | Query / Params                | Description                                              |
+| :------ | :-------------------- | :---------------------------- | :------------------------------------------------------- |
+| `GET`   | `/mails`              | `?page=1&limit=10&search=...` | List system notifications for logged-in user (Paginated) |
+| `GET`   | `/mails/unread-count` | -                             | Get total unread count: `{"unreadCount": 3}`             |
+| `PATCH` | `/mails/:id/read`     | `:id` (UUID)                  | Mark an email / notification as read                     |
 
 ---
 
-## 15. Mails & Notifications API (`/mails`)
+## 17. Direct Stock & Adjustments API
 
-| Method  | Endpoint              | Description                                                   |
-| :------ | :-------------------- | :------------------------------------------------------------ |
-| `GET`   | `/mails`              | List all system emails / notifications for the logged-in user |
-| `GET`   | `/mails/unread-count` | Get total unread count: `{"unreadCount": 3}`                  |
-| `PATCH` | `/mails/:id/read`     | Mark an email / notification as read                          |
-
----
-
-## 16. Direct Stock & Adjustments API
-
-### 16.1 Stock (`/stock`)
+### 17.1 Stock (`/stock`)
 
 - `GET /stock`: Query stock list
 - `GET /stock/:id`: Query single stock record
@@ -879,10 +1252,48 @@ _(AdjustmentType is either `"INCREASE"` or `"DECREASE"`)_
 - `PATCH /stock/:id`: Update stock record
 - `DELETE /stock/:id`: Delete stock record
 
-### 16.2 Stock Adjustments (`/stock-adjustments`)
+### 17.2 Stock Adjustments (`/stock-adjustments`)
 
 - `GET /stock-adjustments`: List direct adjustments
 - `GET /stock-adjustments/:id`: Get adjustment record
 - `POST /stock-adjustments`: Create adjustment
 - `PATCH /stock-adjustments/:id`: Update adjustment
 - `DELETE /stock-adjustments/:id`: Delete adjustment
+
+---
+
+## 18. Sales, Profit & Inventory Reports API
+
+Automated sales and inventory reporting via scheduled cron jobs and manual endpoints, delivering customized Telegram HTML reports.
+
+### 18.1 Automated Cron Schedules
+
+- **Daily Report (5:00 PM)**: Runs every day at 17:00:00 (`0 17 * * *`). Reports today's stock-out sales, cost, revenue, profit, margin, total stock, and low stock warnings.
+- **Weekly Report (Sunday 5:00 PM)**: Runs every Sunday at 17:00:00 (`0 17 * * 0`). Reports full 7-day cumulative sales, spending, revenue, net profit, and inventory status.
+
+### 18.2 Telegram Configuration (.env)
+
+```env
+TELEGRAM_BOT_TOKEN=""
+TELEGRAM_CHAT_ID=""
+```
+
+_(Note: If left empty with double quotes, cron jobs will log a warning and skip delivery without crashing the server)._
+
+### 18.3 Endpoints
+
+| Method | Endpoint                   | Query / Body                        | Description                                             |
+| :----- | :------------------------- | :---------------------------------- | :------------------------------------------------------ |
+| `GET`  | `/reports/summary`         | `?period=daily` or `?period=weekly` | Get raw JSON sales, profit, and stock summary data      |
+| `GET`  | `/reports/preview`         | `?period=daily` or `?period=weekly` | Preview the exact HTML message that Telegram receives   |
+| `POST` | `/reports/telegram/daily`  | -                                   | Manually trigger and send the Daily Report to Telegram  |
+| `POST` | `/reports/telegram/weekly` | -                                   | Manually trigger and send the Weekly Report to Telegram |
+
+#### Sample Telegram Preview Response (`GET /reports/preview?period=daily`)
+
+```json
+{
+  "period": "DAILY",
+  "html": "📊 <b>DAILY SALES & INVENTORY REPORT</b>\n📅 <i>Sep 20, 2026 | 05:00 PM</i>\n━━━━━━━━━━━━━━━━━━━━\n\n💰 <b>FINANCIAL PERFORMANCE</b>\n├ 💵 <b>Total Revenue:</b> $17,482.00\n├ 🏷️ <b>Total Cost of Goods Sold:</b> $13,560.00\n├ 📈 <b>Net Profit:</b> <b>+$3,922.00</b>\n├ 🎯 <b>Profit Margin:</b> <b>22.4%</b>\n├ ⚠️ <b>Damage / Loss Value:</b> -$780.00\n\n📦 <b>SALES (STOCK OUT)</b>\n├ <b>Units Sold:</b> 18 items\n├ <b>Approved Requests:</b> 4\n└ <b>Product Highlights:</b>\n  ▫️ <b>[IPHONE-15] Apple iPhone 15</b> (128GB Black)\n     Sold: <b>10</b> | Cost: $700.00 | Sell: $899.00\n     Profit: <b>+$1,990.00</b> (Margin: 22.1%)\n  ▫️ <b>[MBP16-M3] MacBook Pro 16&quot; M3 Max</b> (1TB Silver)\n     Sold: <b>2</b> | Cost: $2,800.00 | Sell: $3,499.00\n     Profit: <b>+$1,398.00</b> (Margin: 20.0%)\n\n📥 <b>INCOMING INVENTORY (STOCK IN)</b>\n├ <b>Units Received:</b> 45 items (2 batches)\n├ <b>Restock Value:</b> $18,250.00\n└ <b>Restocked Items:</b>\n  ▫️ <b>[IPHONE-15] Apple iPhone 15</b> (128GB Black)\n     Restocked: <b>+25</b> units | Cost: $17,500.00\n\n⚖️ <b>STOCK ADJUSTMENTS & AUDIT</b>\n├ <b>Total Adjustments:</b> 3\n├ <b>Net Quantity:</b> -4 units\n├ 🔻 <b>Total Loss/Decrease:</b> -6 units (-$780.00)\n├ 🔺 <b>Total Surplus/Increase:</b> +2 units (+$140.00)\n└ <b>Breakdown by Reason:</b>\n  🔻 <b>Broken / Damaged</b> (DECREASE):\n     Qty: <b>-4</b> | Impact: <b>-$480.00</b>\n     ▫️ iPhone 15 Clear Case with MagSafe: -3 units\n     ▫️ Apple 100W USB-C Power Adapter: -1 units\n  🔻 <b>Expired / Obsolete</b> (DECREASE):\n     Qty: <b>-2</b> | Impact: <b>-$300.00</b>\n     ▫️ MagSafe Battery Pack: -2 units\n  🔺 <b>Physical Audit Surplus</b> (INCREASE):\n     Qty: <b>+2</b> | Impact: <b>+$140.00</b>\n     ▫️ USB-C Charge Cable (2m): +2 units\n\n🏢 <b>INVENTORY HEALTH</b>\n├ 📦 <b>Total Stock on Hand:</b> 485 units\n└ ⚠️ <b>Low Stock Alerts (2):</b>\n  ▫️ <b>iPhone 15 Clear Case with MagSafe</b>\n     Current: <b>3</b> | Min Required: <b>10</b>\n  ▫️ <b>Apple 100W USB-C Power Adapter</b>\n     Current: <b>1</b> | Min Required: <b>5</b>\n\n━━━━━━━━━━━━━━━━━━━━\n🤖 <i>Automated Notification • Stock Management System</i>"
+}
+```
