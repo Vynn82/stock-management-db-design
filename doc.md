@@ -1036,7 +1036,13 @@ The core workflow engine handling product creation, variant creation/updating, s
 | **`STOCK_IN`**         | `product_code`, `variant_code`, `warehouse_code`, `quantity`, **`base_price`**, **`selling_price`**                                                                                                                                                                                                                                                                                                           |
 | **`STOCK_OUT`**        | `product_code`, `variant_code`, `warehouse_code`, `quantity`, **`base_price`**, **`selling_price`**                                                                                                                                                                                                                                                                                                           |
 | **`STOCK_TRANSFER`**   | `product_code`, `variant_code`, `from_warehouse_code`, `to_warehouse_code`, `quantity`, **`base_price`**, **`selling_price`**                                                                                                                                                                                                                                                                                 |
-| **`STOCK_ADJUSTMENT`** | `product_code`, `variant_code`, `warehouse_code`, `quantity`, `reason`, **`base_price`**, **`selling_price`**                                                                                                                                                                                                                                                                                                 |
+| **`STOCK_ADJUSTMENT`** | `product_code`, `variant_code`, `warehouse_code`, **`adjustment_type`**, `quantity`, `reason`, **`base_price`**, **`selling_price`**                                                                                                                                                                                                                                                                          |
+
+> 💡 **Note on `STOCK_ADJUSTMENT` Option 3 (Flexible Import)**:
+>
+> - **With `adjustment_type` column**: Values can be `INCREASE` or `DECREASE`.
+> - **Without `adjustment_type` column**: If the column is omitted, the system infers the type from the sign of `quantity` (e.g. `-5` = `DECREASE` 5, `5` = `INCREASE` 5).
+> - `base_price` and `selling_price` columns are optional and can be omitted if not needed.
 
 ---
 
